@@ -1,0 +1,16 @@
+{
+    "scripts": {
+        "dfx_install": "DFX_VERSION=0.15.1 sh -ci \"$(curl -fsSL https://sdk.dfinity.org/install.sh)\"",
+        "replica_start": "dfx start --background",
+        "replica_stop": "dfx stop",
+        "canister_deploy_local": "dfx deploy decentralized_crowdfunding_real_estate_ownership_platform",
+        "canister_deploy_mainnet": "dfx deploy --network ic decentralized_crowdfunding_real_estate_ownership_platform",
+        "canister_uninstall": "dfx canister uninstall-code decentralized_crowdfunding_real_estate_ownership_platform",
+        "canister_call_get_message": "dfx canister call decentralized_crowdfunding_real_estate_ownership_platform getMessage",
+        "canister_call_set_message": "dfx canister call decentralized_crowdfunding_real_estate_ownership_platform setMessage '(\"Hello world!\")'"
+    },
+    "dependencies": {
+        "azle": "0.19.0"
+    }
+}
+

@@ -1,0 +1,13 @@
+{
+    "canisters": {
+        "decentralized_crowdfunding_real_estate_ownership_platform": {
+            "type": "custom",
+            "main": "src/index.ts",
+            "candid": "src/index.did",
+            "build": "npx azle decentralized_crowdfunding_real_estate_ownership_platform",
+            "wasm": ".azle/decentralized_crowdfunding_real_estate_ownership_platform/decentralized_crowdfunding_real_estate_ownership_platform.wasm",
+            "gzip": true
+        }
+    }
+}
+

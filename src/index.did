@@ -1,0 +1,18 @@
+service: () -> {
+    buyLocation: (text, text, float32) -> (text);
+    createLocation: (text, float32) -> (text);
+    createOwner: (text) -> (text);
+    getListofLocations: () -> (text) query;
+    getListofOwnerLocations: () -> (text) query;
+    getListofOwners: () -> (text) query;
+    getListofTransactions: () -> (text) query;
+    getLocationDetails: (text) -> (text) query;
+    getOwnerDetails: (text) -> (text) query;
+    getOwnerLocationsbyLocation: (text) -> (text) query;
+    getOwnerLocationsbyOwner: (text) -> (text) query;
+    getOwnerLocationsbyOwnerAndLocation: (text, text) -> (text) query;
+    getTransactionsbyLocation: (text) -> (text) query;
+    getTransactionsbyOwner: (text) -> (text) query;
+    getTransactionsbyOwnerAndLocation: (text, text) -> (text) query;
+    topupCash: (text, float32) -> (text);
+}
