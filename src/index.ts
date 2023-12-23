@@ -19,7 +19,7 @@ const Owner = Record({
     ownerCash: float32,
     createdAt: nat64,
     updatedAt: nat64
-})
+});
 
 const Location = Record({
     locationID: Principal,
@@ -28,7 +28,7 @@ const Location = Record({
     availablePercentage: float32,
     createdAt: nat64,
     updatedAt: nat64
-})
+});
 
 const Transaction = Record({
     transactionID: Principal,
@@ -38,7 +38,7 @@ const Transaction = Record({
     ownerCapital: float32,
     createdAt: nat64,
     updatedAt: nat64
-})
+});
 
 const OwnerLocation = Record({
     ownerLocationID: Principal,
@@ -48,7 +48,7 @@ const OwnerLocation = Record({
     ownerCapital: float32,
     createdAt: nat64,
     updatedAt: nat64
-})
+});
 
 const owners = StableBTreeMap<Principal, typeof Owner.tsType>(0);
 const locations = StableBTreeMap<Principal, typeof Location.tsType>(1);
@@ -56,74 +56,71 @@ const transactions = StableBTreeMap<Principal, typeof Transaction.tsType>(2);
 const ownerLocations = StableBTreeMap<Principal, typeof OwnerLocation.tsType>(3);
 
 function generatePrincipal(): Principal {
-    let uuidBytes = new TextEncoder(). encode(uuidv4());
-
+    const uuidBytes = new TextEncoder().encode(uuidv4());
     return Principal.fromUint8Array(Uint8Array.from(uuidBytes));
 }
-  
 
 export default Canister({
-
-    // construct owner, input: owner name
+    // Construct owner, input: owner name
     createOwner: update([text], text, (ownerName) => {
+        // Check if owner exists
+        const isOwnerExist = owners.values().find((owner) => owner.ownerName === ownerName);
 
-        // check if owner exist
-        const isOwnerExist = owners.values().filter((owner) => owner.ownerName === ownerName)[0];
+        if (isOwnerExist) {
+            return "Error. Owner already exists...";
+        }
 
-        if (isOwnerExist) return ("Error. Owner already exist...");
-
-        // if owner isn't exist
-        // create a unique principal
+        // If owner doesn't exist
+        // Create a unique principal
         const ownerPrincipal = generatePrincipal();
 
-        // construct owner
+        // Construct owner
         const owner: typeof Owner.tsType = {
             ownerID: ownerPrincipal,
-            ownerName: ownerName,
+            ownerName,
             ownerCash: 0,
-            createdAt: ic.time(),
-            updatedAt: ic.time()
-        }
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
 
-        // insert owner
+        // Insert owner
         owners.insert(ownerPrincipal, owner);
-        return (`Owner has been created. Hello ${ownerName}`)
-
+        return `Owner has been created. Hello ${ownerName}`;
     }),
 
-    // construct location, input: location name and location full price
+    // Construct location, input: location name and location full price
     createLocation: update([text, float32], text, (locationName, locationPrice) => {
+        // Check if location exists
+        const isLocationExist = locations.values().find((location) => location.locationName === locationName);
+        if (isLocationExist) {
+            return "Error. Location is already listed...";
+        }
 
-        // check if location exist
-        const isLocationExist = locations.values().filter((location) => location.locationName === locationName)[0];
-        if (isLocationExist) return ("Error. Location is already listed...");
+        // Validate price
+        if (Number.isNaN(locationPrice) || locationPrice <= 0) {
+            return "Error. Price is NaN or below 0...";
+        }
 
-        // validate price
-        if (Number.isNaN(locationPrice) || locationPrice <=0) return ("Error. Price is NaN or below 0...");
-
-        // create a unique principal
+        // Create a unique principal
         const locationPrincipal = generatePrincipal();
 
-        // construct owner
+        // Construct location
         const location: typeof Location.tsType = {
             locationID: locationPrincipal,
-            locationName: locationName,
-            locationPrice: locationPrice,
-            // locationOwners: [],
+            locationName,
+            locationPrice,
             availablePercentage: 1,
-            createdAt: ic.time(),
-            updatedAt: ic.time()
-        }
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
 
-        // insert location
+        // Insert location
         locations.insert(locationPrincipal, location);
-        return (`Location named ${locationName} with price = ${locationPrice} has been created.`)
-
+        return `Location named ${locationName} with price = ${locationPrice} has been created.`;
     }),
 
-    // print all owners
-    getListofOwners:query([], text, () => {
-
+    // Print all owners
+    getListofOwners: query([], text, () => {
         const listofOwners = [];
         listofOwners.push("------------------ All Owner Summaries ------------------");
         listofOwners.push("Name - Cash");
@@ -133,52 +130,48 @@ export default Canister({
         listofOwners.push("----------------------------------------------------");
 
         return listofOwners.join("\n");
-          
     }),
 
-    // print all transactions
-    getListofTransactions:query([], text, () => {
-
+    // Print all transactions
+    getListofTransactions: query([], text, () => {
         const listofTrans = [];
         listofTrans.push("------------------ All Transaction Summaries ------------------");
         listofTrans.push("Owner - Name - Location - Location Name");
         for (const transaction of transactions.values()) {
-            const owner = owners.values().filter((owner) => owner.ownerID.toString() === transaction.owner.toString())[0];
-            const location = locations.values().filter((location) => location.locationID.toString() === transaction.location.toString())[0];
-            listofTrans.push(`${transaction.owner} - ${owner.ownerName} - ${transaction.location} - ${location.locationName}`);
+            const owner = owners.values().find((o) => o.ownerID.toString() === transaction.owner.toString());
+            const location = locations.values().find((l) => l.locationID.toString() === transaction.location.toString());
+            listofTrans.push(`${transaction.owner} - ${owner?.ownerName} - ${transaction.location} - ${location?.locationName}`);
         }
         listofTrans.push("----------------------------------------------------");
 
         return listofTrans.join("\n");
-          
     }),
 
-    // print all owner-location
-    getListofOwnerLocations:query([], text, () => {
-
+    // Print all owner-location
+    getListofOwnerLocations: query([], text, () => {
         const listofOwnerLocations = [];
         listofOwnerLocations.push("------------------ All Owner Location Summaries ------------------");
         listofOwnerLocations.push("Owner - Owner Name - Location - Location name - amount - percentage");
         for (const ownerLocation of ownerLocations.values()) {
-            const owner = owners.values().filter((owner) => owner.ownerID.toString() === ownerLocation.owner.toString())[0];
-            const location = locations.values().filter((location) => location.locationID.toString() === ownerLocation.location.toString())[0];
-            listofOwnerLocations.push(`${ownerLocation.owner} - ${owner.ownerName}  - ${ownerLocation.location} - ${location.locationName} - $${ownerLocation.ownerCapital} - ${ownerLocation.ownPercentage*100}%`);
+            const owner = owners.values().find((o) => o.ownerID.toString() === ownerLocation.owner.toString());
+            const location = locations.values().find((l) => l.locationID.toString() === ownerLocation.location.toString());
+            listofOwnerLocations.push(`${ownerLocation.owner} - ${owner?.ownerName}  - ${ownerLocation.location} - ${location?.locationName} - $${ownerLocation.ownerCapital} - ${ownerLocation.ownPercentage * 100}%`);
         }
         listofOwnerLocations.push("----------------------------------------------------");
 
         return listofOwnerLocations.join("\n");
-          
     }),
 
-    // print owner details, input: owner name
-    getOwnerDetails:query([text], text, (ownerName) => {
+    // Print owner details, input: owner name
+    getOwnerDetails: query([text], text, (ownerName) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === ownerName);
 
-        // check if owner exist
-        const owner = owners.values().filter((owner) => owner.ownerName === ownerName)[0];
+        if (!owner) {
+            return "Error. Owner does not exist...";
+        }
 
-        if (!owner) return ("Error. Owner is not exist...");
-
-        // if owner exist, print the details
+        // If owner exists, print the details
         const ownerDetails = [];
         ownerDetails.push("------------------ Owner Details ------------------");
         ownerDetails.push("Owner ID:        ", owner.ownerID);
@@ -187,354 +180,792 @@ export default Canister({
         ownerDetails.push("Created At:     ", owner.createdAt);
         ownerDetails.push("Updated At:     ", owner.updatedAt ?? "-");
         ownerDetails.push("----------------------------------------------------");
-        
+
         return ownerDetails.join("\n");
-        
     }),
 
-    // print all locations
-    getListofLocations:query([], text, () => {
-
+    // Print all locations
+    getListofLocations: query([], text, () => {
         const listofLocations = [];
         listofLocations.push("------------------ All Location Summaries ------------------");
         listofLocations.push("Name - Price - Availability");
         for (const location of locations.values()) {
-            listofLocations.push(`${location.locationName} - $${location.locationPrice} - ${location.availablePercentage*100}%`);
+            listofLocations.push(`${location.locationName} - $${location.locationPrice} - ${location.availablePercentage * 100}%`);
         }
         listofLocations.push("----------------------------------------------------");
 
         return listofLocations.join("\n");
-          
     }),
 
-    // print location details, input: location name
-    getLocationDetails:query([text], text, (locationName) => {
+    // Print location details, input: location name
+    getLocationDetails: query([text], text, (locationName) => {
+        // Check if location is listed
+        const location = locations.values().find((l) => l.locationName === locationName);
+        if (!location) {
+            return "Error. Location isn't listed...";
+        }
 
-        // check if location listed
-        const location = locations.values().filter((location) => location.locationName === locationName)[0];
-        if (!location) return ("Error. Location isn't listed...");
-
-        // if location listed, print location details
+        // If location is listed, print location details
         const locationDetails = [];
         locationDetails.push("------------------ Location Details ------------------");
         locationDetails.push(`Location ID:      ${location.locationID}`);
         locationDetails.push(`Location Name:    ${location.locationName}`);
         locationDetails.push(`Location Price:$  ${location.locationPrice}`);
-        locationDetails.push(`Available Percentage: ${location.availablePercentage*100}%`);
+        locationDetails.push(`Available Percentage: ${location.availablePercentage * 100}%`);
         locationDetails.push(`Created At:       ${location.createdAt}`);
         locationDetails.push(`Updated At:       ${location.updatedAt}`);
         locationDetails.push("----------------------------------------------------");
         return locationDetails.join("\n");
-        
     }),
 
-    // top up cash for owner, input: owner name, Amount of cash
+    // Top up cash for owner, input: owner name, Amount of cash
     topupCash: update([text, float32], text, (ownerName, cash) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === ownerName);
 
-        // check if owner exist
-        const owner = owners.values().filter((owner) => owner.ownerName === ownerName)[0];
+        if (!owner) {
+            return "Error. Owner does not exist...";
+        }
 
-        if (!owner) return ("Error. Owner is not exist...");
+        // Validate cash
+        if (Number.isNaN(cash) || cash < 0) {
+            return "Error. Cash is NaN or below 0...";
+        }
 
-        // validate cash
-        if (Number.isNaN(cash) || cash <0) return ("Error. Cash is NaN or below 0...");
-
-        // add cash and update updateAt
+        // Add cash and update updatedAt
         owner.ownerCash += cash;
-        owner.updatedAt = ic.time();
+        owner.updatedAt = Date.now();
 
-        // update owner details
-        owners.insert(owner.ownerID, owner); 
+        // Update owner details
+        owners.insert(owner.ownerID, owner);
 
-        return (` Topup successfull, your cash is $${owner.ownerCash}.`)
-
+        return `Topup successful, your cash is $${owner.ownerCash}.`;
     }),
-    
-    // buy location for owner, input: owner name, location name, Amount to buy
+
+    // Buy location for owner, input: owner name, location name, Amount to buy
     buyLocation: update([text, text, float32], text, (buyerName, locationName, amountInDollar) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === buyerName);
 
-        // check if owner exist
-        const owner = owners.values().filter((owner) => owner.ownerName === buyerName)[0];
+        if (!owner) {
+            return "Error. Buyer does not exist...";
+        }
 
-        if (!owner) return ("Error. Buyer is not exist...");
+        // Check if location is listed
+        const location = locations.values().find((l) => l.locationName === locationName);
 
-        // check if location listed
-        const location = locations.values().filter((location) => location.locationName === locationName)[0];
+        if (!location) {
+            return "Error. Location isn't listed...";
+        }
 
-        if (!location) return ("Error. Location isn't listed...");
+        // Validate cash
+        if (owner.ownerCash < amountInDollar) {
+            return "Error. Buyer's cash is not sufficient...";
+        }
 
-        // validate cash
-        if (owner.ownerCash < amountInDollar) return ("Error. Buyer's cash is not sufficient...");
+        // Validate availability
+        if (location.availablePercentage * location.locationPrice < amountInDollar) {
+            return "Error. The amount desired to be purchased exceeds what is available...";
+        }
 
-        // validate availability
-        if ((location.availablePercentage * location.locationPrice) < amountInDollar) return ("Error. The amount desired to be purchased exceeds what is available...");
+        // Validate amount to buy
+        if (Number.isNaN(amountInDollar) || amountInDollar <= 0) {
+            return "Error. AmountInDollar is NaN or below 0...";
+        }
 
-        // validate amount to buy
-        if (Number.isNaN(amountInDollar) || amountInDollar <=0) return ("Error. AmountInDollar is NaN or below 0...");
-
-        // create transaction
-        let ownPercentage = amountInDollar/location.locationPrice;
-
+        // Create transaction
+        const ownPercentage = amountInDollar / location.locationPrice;
         const transactionPrincipal = generatePrincipal();
-        
+
         const transaction: typeof Transaction.tsType = {
             transactionID: transactionPrincipal,
             location: location.locationID,
             owner: owner.ownerID,
-            ownPercentage:ownPercentage,
+            ownPercentage,
             ownerCapital: amountInDollar,
-            createdAt: ic.time(),
-            updatedAt: ic.time()
-        }
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
 
-        // insert transaction
+        // Insert transaction
         transactions.insert(transactionPrincipal, transaction);
 
-        // create or update owner-location
-        const ownLocation = ownerLocations.values().filter((ownLoc) => ownLoc.owner.toString() === owner.ownerID.toString() && ownLoc.location.toString() === location.locationID.toString() )[0];
+        // Create or update owner-location
+        const ownLocation = ownerLocations.values().find((ownLoc) => ownLoc.owner.toString() === owner.ownerID.toString() && ownLoc.location.toString() === location.locationID.toString());
 
         let ownerLocationPrincipal;
 
-        if (!ownLocation){
+        if (!ownLocation) {
             ownerLocationPrincipal = generatePrincipal();
 
             const ownerLocation: typeof OwnerLocation.tsType = {
                 ownerLocationID: ownerLocationPrincipal,
                 location: location.locationID,
                 owner: owner.ownerID,
-                ownPercentage: ownPercentage,
+                ownPercentage,
                 ownerCapital: amountInDollar,
-                createdAt: ic.time(),
-                updatedAt: ic.time()
-            }
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
 
             ownerLocations.insert(ownerLocationPrincipal, ownerLocation);
         } else {
             ownerLocationPrincipal = ownLocation.ownerLocationID;
             ownLocation.ownerCapital += amountInDollar;
             ownLocation.ownPercentage += ownPercentage;
-            ownLocation.updatedAt = ic.time();
+            ownLocation.updatedAt = Date.now();
 
             ownerLocations.insert(ownerLocationPrincipal, ownLocation);
         }
 
-        // update owner details
+        // Update owner details
         owner.ownerCash -= amountInDollar;
-        owner.updatedAt = ic.time();
+        owner.updatedAt = Date.now();
 
-        owners.insert(owner.ownerID, owner); 
+        owners.insert(owner.ownerID, owner);
 
-        // update location details
-        location.availablePercentage -= amountInDollar/location.locationPrice;
-        location.updatedAt = ic.time();
+        // Update location details
+        location.availablePercentage -= amountInDollar / location.locationPrice;
+        location.updatedAt = Date.now();
 
         locations.insert(location.locationID, location);
 
-        return (`Buy location successfull. ${owner.ownerName} buy ${location.locationName} as much as ${transaction.ownPercentage*100}% or $${transaction.ownerCapital}`)
-
+        return `Buy location successful. ${owner.ownerName} buys ${location.locationName} as much as ${transaction.ownPercentage * 100}% or $${transaction.ownerCapital}`;
     }),
 
-    // print transaction by owner, input: owner name
-    getTransactionsbyOwner: query([text], text, (ownerName) => {
+    // Print transaction by owner, input: owner name
+    getTransactionsbyOwner:
+import {
+    Canister,
+    ic,
+    nat64,
+    Principal,
+    StableBTreeMap,
+    update,
+    text,
+    query,
+    Record,
+    float32,
+} from 'azle';
 
-        // check if owner exist
-        const owner = owners.values().filter((owner) => owner.ownerName === ownerName)[0];
+import { v4 as uuidv4 } from 'uuid';
 
-        if (!owner) return ("Error. Owner is not exist...");
+const Owner = Record({
+    ownerID: Principal,
+    ownerName: text,
+    ownerCash: float32,
+    createdAt: nat64,
+    updatedAt: nat64
+});
 
-        // if exist, print all transactions done by owner
-        const transactionDetails = [];
+const Location = Record({
+    locationID: Principal,
+    locationName: text,
+    locationPrice: float32,
+    availablePercentage: float32,
+    createdAt: nat64,
+    updatedAt: nat64
+});
 
+const Transaction = Record({
+    transactionID: Principal,
+    location: Principal,
+    owner: Principal,
+    ownPercentage: float32,
+    ownerCapital: float32,
+    createdAt: nat64,
+    updatedAt: nat64
+});
+
+const OwnerLocation = Record({
+    ownerLocationID: Principal,
+    location: Principal,
+    owner: Principal,
+    ownPercentage: float32,
+    ownerCapital: float32,
+    createdAt: nat64,
+    updatedAt: nat64
+});
+
+const owners = StableBTreeMap<Principal, typeof Owner.tsType>(0);
+const locations = StableBTreeMap<Principal, typeof Location.tsType>(1);
+const transactions = StableBTreeMap<Principal, typeof Transaction.tsType>(2);
+const ownerLocations = StableBTreeMap<Principal, typeof OwnerLocation.tsType>(3);
+
+function generatePrincipal(): Principal {
+    const uuidBytes = new TextEncoder().encode(uuidv4());
+    return Principal.fromUint8Array(Uint8Array.from(uuidBytes));
+}
+
+export default Canister({
+    // Construct owner, input: owner name
+    createOwner: update([text], text, (ownerName) => {
+        // Check if owner exists
+        const isOwnerExist = owners.values().find((owner) => owner.ownerName === ownerName);
+
+        if (isOwnerExist) {
+            return "Error. Owner already exists...";
+        }
+
+        // If owner doesn't exist
+        // Create a unique principal
+        const ownerPrincipal = generatePrincipal();
+
+        // Construct owner
+        const owner: typeof Owner.tsType = {
+            ownerID: ownerPrincipal,
+            ownerName,
+            ownerCash: 0,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+
+        // Insert owner
+        owners.insert(ownerPrincipal, owner);
+        return `Owner has been created. Hello ${ownerName}`;
+    }),
+
+    // Construct location, input: location name and location full price
+    createLocation: update([text, float32], text, (locationName, locationPrice) => {
+        // Check if location exists
+        const isLocationExist = locations.values().find((location) => location.locationName === locationName);
+        if (isLocationExist) {
+            return "Error. Location is already listed...";
+        }
+
+        // Validate price
+        if (Number.isNaN(locationPrice) || locationPrice <= 0) {
+            return "Error. Price is NaN or below 0...";
+        }
+
+        // Create a unique principal
+        const locationPrincipal = generatePrincipal();
+
+        // Construct location
+        const location: typeof Location.tsType = {
+            locationID: locationPrincipal,
+            locationName,
+            locationPrice,
+            availablePercentage: 1,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+
+        // Insert location
+        locations.insert(locationPrincipal, location);
+        return `Location named ${locationName} with price = ${locationPrice} has been created.`;
+    }),
+
+    // Print all owners
+    getListofOwners: query([], text, () => {
+        const listofOwners = [];
+        listofOwners.push("------------------ All Owner Summaries ------------------");
+        listofOwners.push("Name - Cash");
+        for (const owner of owners.values()) {
+            listofOwners.push(`${owner.ownerName} - $${owner.ownerCash}`);
+        }
+        listofOwners.push("----------------------------------------------------");
+
+        return listofOwners.join("\n");
+    }),
+
+    // Print all transactions
+    getListofTransactions: query([], text, () => {
+        const listofTrans = [];
+        listofTrans.push("------------------ All Transaction Summaries ------------------");
+        listofTrans.push("Owner - Name - Location - Location Name");
         for (const transaction of transactions.values()) {
-            if (transaction.owner.toString() === owner.ownerID.toString()){
-                const location = locations.values().filter((location) => location.locationID.toString() === transaction.location.toString())[0];
-                transactionDetails.push("------------------ Transaction Details ------------------");
-                transactionDetails.push(`Transaction ID: ${transaction.transactionID}`);
-                transactionDetails.push(`Location: ${transaction.location}`);
-                transactionDetails.push(`Location Name: ${location.locationName}`);
-                transactionDetails.push(`Owner: ${transaction.owner}`);
-                transactionDetails.push(`Owner Name: ${owner.ownerName}`);
-                transactionDetails.push(`Owner Percantage: ${transaction.ownPercentage*100}%`);
-                transactionDetails.push(`Owner Capital: $${transaction.ownerCapital}`);
-                transactionDetails.push(`Created At: ${transaction.createdAt}`);
-                transactionDetails.push(`Updated At: ${transaction.updatedAt}`);
-                transactionDetails.push("----------------------------------------------------");
-                transactionDetails.push("\n");
-            }
+            const owner = owners.values().find((o) => o.ownerID.toString() === transaction.owner.toString());
+            const location = locations.values().find((l) => l.locationID.toString() === transaction.location.toString());
+            listofTrans.push(`${transaction.owner} - ${owner?.ownerName} - ${transaction.location} - ${location?.locationName}`);
         }
+        listofTrans.push("----------------------------------------------------");
 
-        return transactionDetails.join("\n");
-
+        return listofTrans.join("\n");
     }),
 
-    // print transaction by location, input: location name
-    getTransactionsbyLocation: query([text], text, (locationName) => {
+    // Print all owner-location
+    getListofOwnerLocations: query([], text, () => {
+        const listofOwnerLocations = [];
+        listofOwnerLocations.push("------------------ All Owner Location Summaries ------------------");
+        listofOwnerLocations.push("Owner - Owner Name - Location - Location name - amount - percentage");
+        for (const ownerLocation of ownerLocations.values()) {
+            const owner = owners.values().find((o) => o.ownerID.toString() === ownerLocation.owner.toString());
+            const location = locations.values().find((l) => l.locationID.toString() === ownerLocation.location.toString());
+            listofOwnerLocations.push(`${ownerLocation.owner} - ${owner?.ownerName}  - ${ownerLocation.location} - ${location?.locationName} - $${ownerLocation.ownerCapital} - ${ownerLocation.ownPercentage * 100}%`);
+        }
+        listofOwnerLocations.push("----------------------------------------------------");
 
-        // check if location listed
-        const location = locations.values().filter((location) => location.locationName === locationName)[0];
-        if (!location) return ("Error. Location isn't listed...");
+        return listofOwnerLocations.join("\n");
+    }),
 
-        // if location listed, print all transactions done on the location
-        const transactionDetails = [];
+    // Print owner details, input: owner name
+    getOwnerDetails: query([text], text, (ownerName) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === ownerName);
 
+        if (!owner) {
+            return "Error. Owner does not exist...";
+        }
+
+        // If owner exists, print the details
+        const ownerDetails = [];
+        ownerDetails.push("------------------ Owner Details ------------------");
+        ownerDetails.push("Owner ID:        ", owner.ownerID);
+        ownerDetails.push("Owner Name:      ", owner.ownerName);
+        ownerDetails.push("Owner Cash:$      ", owner.ownerCash);
+        ownerDetails.push("Created At:     ", owner.createdAt);
+        ownerDetails.push("Updated At:     ", owner.updatedAt ?? "-");
+        ownerDetails.push("----------------------------------------------------");
+
+        return ownerDetails.join("\n");
+    }),
+
+    // Print all locations
+    getListofLocations: query([], text, () => {
+        const listofLocations = [];
+        listofLocations.push("------------------ All Location Summaries ------------------");
+        listofLocations.push("Name - Price - Availability");
+        for (const location of locations.values()) {
+            listofLocations.push(`${location.locationName} - $${location.locationPrice} - ${location.availablePercentage * 100}%`);
+        }
+        listofLocations.push("----------------------------------------------------");
+
+        return listofLocations.join("\n");
+    }),
+
+    // Print location details, input: location name
+    getLocationDetails: query([text], text, (locationName) => {
+        // Check if location is listed
+        const location = locations.values().find((l) => l.locationName === locationName);
+        if (!location) {
+            return "Error. Location isn't listed...";
+        }
+
+        // If location is listed, print location details
+        const locationDetails = [];
+        locationDetails.push("------------------ Location Details ------------------");
+        locationDetails.push(`Location ID:      ${location.locationID}`);
+        locationDetails.push(`Location Name:    ${location.locationName}`);
+        locationDetails.push(`Location Price:$  ${location.locationPrice}`);
+        locationDetails.push(`Available Percentage: ${location.availablePercentage * 100}%`);
+        locationDetails.push(`Created At:       ${location.createdAt}`);
+        locationDetails.push(`Updated At:       ${location.updatedAt}`);
+        locationDetails.push("----------------------------------------------------");
+        return locationDetails.join("\n");
+    }),
+
+    // Top up cash for owner, input: owner name, Amount of cash
+    topupCash: update([text, float32], text, (ownerName, cash) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === ownerName);
+
+        if (!owner) {
+            return "Error. Owner does not exist...";
+        }
+
+        // Validate cash
+        if (Number.isNaN(cash) || cash < 0) {
+            return "Error. Cash is NaN or below 0...";
+        }
+
+        // Add cash and update updatedAt
+        owner.ownerCash += cash;
+        owner.updatedAt = Date.now();
+
+        // Update owner details
+        owners.insert(owner.ownerID, owner);
+
+        return `Topup successful, your cash is $${owner.ownerCash}.`;
+    }),
+
+    // Buy location for owner, input: owner name, location name, Amount to buy
+    buyLocation: update([text, text, float32], text, (buyerName, locationName, amountInDollar) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === buyerName);
+
+        if (!owner) {
+            return "Error. Buyer does not exist...";
+        }
+
+        // Check if location is listed
+        const location = locations.values().find((l) => l.locationName === locationName);
+
+        if (!location) {
+            return "Error. Location isn't listed...";
+        }
+
+        // Validate cash
+        if (owner.ownerCash < amountInDollar) {
+            return "Error. Buyer's cash is not sufficient...";
+        }
+
+        // Validate availability
+        if (location.availablePercentage * location.locationPrice < amountInDollar) {
+            return "Error. The amount desired to be purchased exceeds what is available...";
+        }
+
+        // Validate amount to buy
+        if (Number.isNaN(amountInDollar) || amountInDollar <= 0) {
+            return "Error. AmountInDollar is NaN or below 0...";
+        }
+
+        // Create transaction
+        const ownPercentage = amountInDollar / location.locationPrice;
+        const transactionPrincipal = generatePrincipal();
+
+        const transaction: typeof Transaction.tsType = {
+            transactionID: transactionPrincipal,
+            location: location.locationID,
+            owner: owner.ownerID,
+            ownPercentage,
+            ownerCapital: amountInDollar,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+
+        // Insert transaction
+        transactions.insert(transactionPrincipal, transaction);
+
+        // Create or update owner-location
+        const ownLocation = ownerLocations.values().find((ownLoc) => ownLoc.owner.toString() === owner.ownerID.toString() && ownLoc.location.toString() === location.locationID.toString());
+
+        let ownerLocationPrincipal;
+
+        if (!ownLocation) {
+            ownerLocationPrincipal = generatePrincipal();
+
+            const ownerLocation: typeof OwnerLocation.tsType = {
+                ownerLocationID: ownerLocationPrincipal,
+                location: location.locationID,
+                owner: owner.ownerID,
+                ownPercentage,
+                ownerCapital: amountInDollar,
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            };
+
+            ownerLocations.insert(ownerLocationPrincipal, ownerLocation);
+        } else {
+            ownerLocationPrincipal = ownLocation.ownerLocationID;
+            ownLocation.ownerCapital += amountInDollar;
+            ownLocation.ownPercentage += ownPercentage;
+            ownLocation.updatedAt = Date.now();
+
+            ownerLocations.insert(ownerLocationPrincipal, ownLocation);
+        }
+
+        // Update owner details
+        owner.ownerCash -= amountInDollar;
+        owner.updatedAt = Date.now();
+
+        owners.insert(owner.ownerID, owner);
+
+        // Update location details
+        location.availablePercentage -= amountInDollar / location.locationPrice;
+        location.updatedAt = Date.now();
+
+        locations.insert(location.locationID, location);
+
+        return `Buy location successful. ${owner.ownerName} buys ${location.locationName} as much as ${transaction.ownPercentage * 100}% or $${transaction.ownerCapital}`;
+    }),
+
+    // Print transaction by owner, input: owner name
+    getTransactionsbyOwner:    query([text], text, (ownerName) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === ownerName);
+
+        if (!owner) {
+            return "Error. Owner does not exist...";
+        }
+
+        // If owner exists, print the transactions
+        const transactionsByOwner = [];
+        transactionsByOwner.push(`------------------ Transactions for ${ownerName} ------------------`);
+        transactionsByOwner.push("Location - Location Name - Percentage - Amount - Date");
+        
         for (const transaction of transactions.values()) {
-            if (transaction.location.toString() === location.locationID.toString()){
-                const owner = owners.values().filter((owner) => owner.ownerID.toString() === transaction.owner.toString())[0];
-                transactionDetails.push("------------------ Transaction Details ------------------");
-                transactionDetails.push(`Transaction ID: ${transaction.transactionID}`);
-                transactionDetails.push(`Location:" ${transaction.location}`);
-                transactionDetails.push(`Location Name: ${location.locationName}`);
-                transactionDetails.push(`Owner: ${transaction.owner}`);
-                transactionDetails.push(`Owner Name: ${owner.ownerName}`);
-                transactionDetails.push(`Owner Percantage: ${transaction.ownPercentage*100}%`);
-                transactionDetails.push(`Owner Capital: $${transaction.ownerCapital}`);
-                transactionDetails.push(`Created At: ${transaction.createdAt}`);
-                transactionDetails.push(`Updated At: ${transaction.updatedAt}`);
-                transactionDetails.push("----------------------------------------------------");
-                transactionDetails.push("\n");
+            if (transaction.owner.toString() === owner.ownerID.toString()) {
+                const location = locations.values().find((l) => l.locationID.toString() === transaction.location.toString());
+                transactionsByOwner.push(`${transaction.location} - ${location?.locationName} - ${transaction.ownPercentage * 100}% - $${transaction.ownerCapital} - ${new Date(transaction.createdAt)}`);
             }
         }
 
-        return transactionDetails.join("\n");
-        
+        transactionsByOwner.push("----------------------------------------------------");
+
+        return transactionsByOwner.join("\n");
     }),
 
-    // print transaction by owner and location, input: owner name, location name
-    getTransactionsbyOwnerAndLocation: query([text, text], text, (ownerName, locationName) => {
+    // Withdraw cash for owner, input: owner name, Amount of cash
+    withdrawCash: update([text, float32], text, (ownerName, cash) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === ownerName);
 
-        // check if owner exist
-        const owner = owners.values().filter((owner) => owner.ownerName === ownerName)[0];
+        if (!owner) {
+            return "Error. Owner does not exist...";
+        }
 
-        if (!owner) return ("Error. Owner is not exist...");
+        // Validate cash
+        if (Number.isNaN(cash) || cash <= 0) {
+            return "Error. Cash is NaN or below 0...";
+        }
 
-        // check if location listed
-        const location = locations.values().filter((location) => location.locationName === locationName)[0];
+        // Check if owner has enough cash
+        if (owner.ownerCash < cash) {
+            return "Error. Insufficient funds...";
+        }
 
-        if (!location) return ("Error. Location isn't listed...");
+        // Update owner details
+        owner.ownerCash -= cash;
+        owner.updatedAt = Date.now();
 
-        // if exist & listed, print all transactions done by owner and on the location
-        const transactionDetails= [];
-        
+        owners.insert(owner.ownerID, owner);
+
+        return `Withdrawal successful. Your cash is now $${owner.ownerCash}.`;
+    }),
+
+    // Sell location for owner, input: owner name, location name, Amount to sell
+    sellLocation: update([text, text, float32], text, (sellerName, locationName, amountInDollar) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === sellerName);
+
+        if (!owner) {
+            return "Error. Seller does not exist...";
+        }
+
+        // Check if location is listed
+        const location = locations.values().find((l) => l.locationName === locationName);
+
+        if (!location) {
+            return "Error. Location isn't listed...";
+        }
+
+        // Validate amount to sell
+        if (Number.isNaN(amountInDollar) || amountInDollar <= 0) {
+            return "Error. AmountInDollar is NaN or below 0...";
+        }
+
+        // Check if owner has enough owned percentage to sell
+        const ownerLocation = ownerLocations.values().find((ownLoc) => ownLoc.owner.toString() === owner.ownerID.toString() && ownLoc.location.toString() === location.locationID.toString());
+
+        if (!ownerLocation || ownerLocation.ownPercentage < amountInDollar / location.locationPrice) {
+            return "Error. Insufficient ownership...";
+        }
+
+        // Create transaction
+        const ownPercentage = amountInDollar / location.locationPrice;
+        const transactionPrincipal = generatePrincipal();
+
+        const transaction: typeof Transaction.tsType = {
+            transactionID: transactionPrincipal,
+            location: location.locationID,
+            owner: owner.ownerID,
+            ownPercentage,
+            ownerCapital: amountInDollar,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+
+        // Insert transaction
+        transactions.insert(transactionPrincipal, transaction);
+
+        // Update owner-location details
+        ownerLocation.ownerCapital -= amountInDollar;
+        ownerLocation.ownPercentage -= ownPercentage;
+        ownerLocation.updatedAt = Date.now();
+
+        ownerLocations.insert(ownerLocation.ownerLocationID, ownerLocation);
+
+        // Update owner details
+        owner.ownerCash += amountInDollar;
+        owner.updatedAt = Date.now();
+
+        owners.insert(owner.ownerID, owner);
+
+        // Update location details
+        location.availablePercentage += amountInDollar / location.locationPrice;
+        location.updatedAt = Date.now();
+
+        locations.insert(location.locationID, location);
+
+        return `Sell location successful. ${sellerName} sells ${location.locationName} for ${amountInDollar}.`;
+    }),
+
+    // Set availability for location, input: location name, new availability percentage
+    setLocationAvailability: update([text, float32], text, (locationName, newAvailability) => {
+        // Check if location is listed
+        const location = locations.values().find((l) => l.locationName === locationName);
+
+        if (!location) {
+            return "Error. Location isn't listed...";
+        }
+
+        // Validate new availability
+        if (Number.isNaN(newAvailability) || newAvailability < 0 || newAvailability > 1) {
+            return "Error. New availability is NaN, below 0, or above 1...";
+        }
+
+        // Update location details
+        location.availablePercentage = newAvailability;
+        location.updatedAt = Date.now();
+
+        locations.insert(location.locationID, location);
+
+        return `Set availability for ${locationName} to ${newAvailability * 100}%.`;
+    }),
+
+    // Set ownership percentage for owner-location, input: owner name, location name, new ownership percentage
+    setOwnershipPercentage: update([text, text, float32], text, (ownerName, locationName, newOwnershipPercentage) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === ownerName);
+
+        if (!owner) {
+            return "Error. Owner does not exist...";
+        }
+
+        // Check if location is listed
+        const location = locations.values().find((l) => l.locationName === locationName);
+
+        if (!location) {
+            return "Error. Location isn't listed...";
+        }
+
+        // Validate new ownership percentage
+        if (Number.isNaN(newOwnershipPercentage) || newOwnershipPercentage < 0 || newOwnershipPercentage > 1) {
+            return "Error. New ownership percentage is NaN, below 0, or above 1...";
+        }
+
+        // Check if owner-location exists
+        const ownerLocation = ownerLocations.values().find((ownLoc) => ownLoc.owner.toString() === owner.ownerID.toString() && ownLoc.location.toString() === location.locationID.toString());
+
+        if (!ownerLocation) {
+            return "Error. Owner does not own this location...";
+        }
+
+        // Update owner-location details
+        ownerLocation.ownPercentage = newOwnershipPercentage;
+        ownerLocation.updatedAt = Date.now();
+
+        ownerLocations.insert(ownerLocation.ownerLocationID, ownerLocation);
+
+        return `Set ownership percentage for ${ownerName} in ${locationName} to ${newOwnershipPercentage * 100}%.`;
+    }),
+
+    // Delete location, input: location name
+    deleteLocation: update([text], text, (locationName) => {
+        // Check if location is listed
+        const location = locations.values().find((l) => l.locationName === locationName);
+
+        if (!location) {
+            return "Error. Location isn't listed...";
+        }
+
+        // Delete location
+        locations.delete(location.locationID);
+
+        // Delete related transactions
         for (const transaction of transactions.values()) {
-            if (transaction.location.toString() === location.locationID.toString() && transaction.owner.toString() === owner.ownerID.toString()){
-                transactionDetails.push("------------------ Transaction Details ------------------");
-                transactionDetails.push(`Transaction ID: ${transaction.transactionID}`);
-                transactionDetails.push(`Location:" ${transaction.location}`);
-                transactionDetails.push(`Location Name: ${location.locationName}`);
-                transactionDetails.push(`Owner: ${transaction.owner}`);
-                transactionDetails.push(`Owner Name: ${owner.ownerName}`);
-                transactionDetails.push(`Owner Percantage: ${transaction.ownPercentage*100}%`);
-                transactionDetails.push(`Owner Capital: $${transaction.ownerCapital}`);
-                transactionDetails.push(`Created At: ${transaction.createdAt}`);
-                transactionDetails.push(`Updated At: ${transaction.updatedAt}`);
-                transactionDetails.push("----------------------------------------------------");
-                transactionDetails.push("\n");
+            if (transaction.location.toString() === location.locationID.toString()) {
+                transactions.delete(transaction.transactionID);
             }
         }
 
-        return transactionDetails.join("\n");
+        // Delete related owner-locations
+        for (const ownerLocation of ownerLocations.values()) {
+            if (ownerLocation.location.toString() === location.locationID.toString()) {
+                ownerLocations.delete(ownerLocation.ownerLocationID);
+            }
+        }
+
+        return `Location ${locationName} has been deleted.`;
     }),
 
-    // print owner-location by owner, input: owner name
-    getOwnerLocationsbyOwner: query([text], text, (ownerName) => {
+    // Delete owner, input: owner name
+    deleteOwner: update([text], text, (ownerName) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === ownerName);
 
-        //check if owner exist
-        const owner = owners.values().filter((owner) => owner.ownerName === ownerName)[0];
+        if (!owner) {
+            return "Error. Owner does not exist...";
+        }
 
-        if (!owner) return ("Error. Owner is not exist...");
+        // Delete owner
+        owners.delete(owner.ownerID);
 
-        // if exist, print all owner-location done by owner
-        const ownerLocationDetails = [];
-
-        for (const ownerLocation of ownerLocations.values()) {
-            if (ownerLocation.owner.toString() === owner.ownerID.toString()){
-                const location = locations.values().filter((location) => location.locationID.toString() === ownerLocation.location.toString())[0];
-                ownerLocationDetails.push("------------------ Owner Location Details ------------------");
-                ownerLocationDetails.push(`OwnerLocation ID: ${ownerLocation.ownerLocationID}`);
-                ownerLocationDetails.push(`Location:" ${ownerLocation.location}`);
-                ownerLocationDetails.push(`Location Name: ${location.locationName}`);
-                ownerLocationDetails.push(`Owner: ${ownerLocation.owner}`);
-                ownerLocationDetails.push(`Owner Name: ${owner.ownerName}`);
-                ownerLocationDetails.push(`Owner Percantage: ${ownerLocation.ownPercentage*100}%`);
-                ownerLocationDetails.push(`Owner Capital: $${ownerLocation.ownerCapital}`);
-                ownerLocationDetails.push(`Created At: ${ownerLocation.createdAt}`);
-                ownerLocationDetails.push(`Updated At: ${ownerLocation.updatedAt}`);
-                ownerLocationDetails.push("----------------------------------------------------");
-                ownerLocationDetails.push("\n");
+        // Delete related transactions
+        for (const transaction of transactions.values()) {
+            if (transaction.owner.toString() === owner.ownerID.toString()) {
+                transactions.delete(transaction.transactionID);
             }
         }
 
-        return ownerLocationDetails.join("\n");
+        // Delete related owner-locations
+        for (const ownerLocation of ownerLocations.values()) {
+            if (ownerLocation.owner.toString() === owner.ownerID.toString()) {
+                ownerLocations.delete(ownerLocation.ownerLocationID);
+            }
+        }
 
+        return `Owner ${ownerName} has been deleted.`;
     }),
 
-    // print owner-location on location, input: location name
-    getOwnerLocationsbyLocation: query([text], text, (locationName) => {
+    // Delete transaction, input: owner name, location name, transaction amount
+    deleteTransaction: update([text, text, float32], text, (ownerName, locationName, amount) => {
+        // Check if owner exists
+        const owner = owners.values().find((o) => o.ownerName === ownerName);
 
-        // check if location listed
-        const location = locations.values().filter((location) => location.locationName === locationName)[0];
-        if (!location) return ("Error. Location isn't listed...");
+        if (!owner) {
+            return "Error. Owner does not exist...";
+        }
 
-        // if listed, print all owner-location done on the location
-        const ownerLocationDetails = [];
+        // Check if location is listed
+        const location = locations.values().find((l) => l.locationName === locationName);
 
-        for (const ownerLocation of ownerLocations.values()) {
-            if (ownerLocation.location.toString() === location.locationID.toString()){
-                const owner = owners.values().filter((owner) => owner.ownerID.toString() === ownerLocation.owner.toString())[0];
-                ownerLocationDetails.push("------------------ Owner Location Details ------------------");
-                ownerLocationDetails.push(`OwnerLocation ID: ${ownerLocation.ownerLocationID}`);
-                ownerLocationDetails.push(`Location:" ${ownerLocation.location}`);
-                ownerLocationDetails.push(`Location Name: ${location.locationName}`);
-                ownerLocationDetails.push(`Owner: ${ownerLocation.owner}`);
-                ownerLocationDetails.push(`Owner Name: ${owner.ownerName}`);
-                ownerLocationDetails.push(`Owner Percantage: ${ownerLocation.ownPercentage*100}%`);
-                ownerLocationDetails.push(`Owner Capital: $${ownerLocation.ownerCapital}`);
-                ownerLocationDetails.push(`Created At: ${ownerLocation.createdAt}`);
-                ownerLocationDetails.push(`Updated At: ${ownerLocation.updatedAt}`);
-                ownerLocationDetails.push("----------------------------------------------------");
-                ownerLocationDetails.push("\n");
+        if (!location) {
+            return "Error. Location isn't listed...";
+        }
+
+        // Validate amount to delete
+        if (Number.isNaN(amount) || amount <= 0) {
+            return "Error. Amount is NaN or below 0...";
+        }
+
+        // Find and delete transaction
+        for (const transaction of transactions.values()) {
+            if (
+                transaction.owner.toString() === owner.ownerID.toString() &&
+                transaction.location.toString() === location.locationID.toString() &&
+                transaction.ownerCapital === amount
+            ) {
+                transactions.delete(transaction.transactionID);
+
+                // Update owner-location details
+                const ownerLocation = ownerLocations.values().find((ownLoc) => ownLoc.owner.toString() === owner.ownerID.toString() && ownLoc.location.toString() === location.locationID.toString());
+
+                if (ownerLocation) {
+                    ownerLocation.ownerCapital -= amount;
+                    ownerLocation.ownPercentage -= amount / location.locationPrice;
+                    ownerLocation.updatedAt = Date.now();
+
+                    ownerLocations.insert(ownerLocation.ownerLocationID, ownerLocation);
+                }
+
+                // Update owner details
+                owner.ownerCash += amount;
+                owner.updatedAt = Date.now();
+
+                owners.insert(owner.ownerID, owner);
+
+                // Update location details
+                location.availablePercentage += amount / location.locationPrice;
+                location.updatedAt = Date.now();
+
+                locations.insert(location.locationID, location);
+
+                return `Transaction of amount $${amount} has been deleted.`;
             }
         }
 
-        return ownerLocationDetails.join("\n");
-        
-    }),
-
-    // print all owner-location by owner & location, input: owner name, location name
-    getOwnerLocationsbyOwnerAndLocation: query([text, text], text, (ownerName, locationName) => {
-
-        // check if owner exist
-        const owner = owners.values().filter((owner) => owner.ownerName === ownerName)[0];
-
-        if (!owner) return ("Error. Owner is not exist...");
-
-        // check if location listed
-        const location = locations.values().filter((location) => location.locationName === locationName)[0];
-
-        if (!location) return ("Error. Location isn't listed...");
-
-        // if exist & listed, print all owner-location done by owner & on the location
-        const ownerLocationDetails = [];
-
-        for (const ownerLocation of ownerLocations.values()) {
-            if (ownerLocation.location.toString() === location.locationID.toString() && ownerLocation.owner.toString() === owner.ownerID.toString()){
-                ownerLocationDetails.push("------------------ Owner Location Details ------------------");
-                ownerLocationDetails.push(`OwnerLocation ID: ${ownerLocation.ownerLocationID}`);
-                ownerLocationDetails.push(`Location:" ${ownerLocation.location}`);
-                ownerLocationDetails.push(`Location Name: ${location.locationName}`);
-                ownerLocationDetails.push(`Owner: ${ownerLocation.owner}`);
-                ownerLocationDetails.push(`Owner Name: ${owner.ownerName}`);
-                ownerLocationDetails.push(`Owner Percantage: ${ownerLocation.ownPercentage*100}%`);
-                ownerLocationDetails.push(`Owner Capital: $${ownerLocation.ownerCapital}`);
-                ownerLocationDetails.push(`Created At: ${ownerLocation.createdAt}`);
-                ownerLocationDetails.push(`Updated At: ${ownerLocation.updatedAt}`);
-                ownerLocationDetails.push("----------------------------------------------------");
-                ownerLocationDetails.push("\n");
-            }
-        }
-
-        return ownerLocationDetails.join("\n");
+        return "Error. Transaction not found...";
     })
-
-})
-
+});
